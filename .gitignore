@@ -8,6 +8,7 @@ __pycache__/
 # Django
 db.sqlite3
 media/
+staticfiles/
 
 # AWS
 .aws/
