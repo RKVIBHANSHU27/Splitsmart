@@ -1,0 +1,46 @@
+{% extends 'expenses/base.html' %}
+{% block title %}Verify Email — SmartSplit{% endblock %}
+{% block content %}
+<div style="min-height:80vh;display:flex;align-items:center;justify-content:center;">
+  <div style="width:100%;max-width:420px;padding:0 16px;">
+
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="font-size:48px;margin-bottom:12px;">📧</div>
+      <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500;margin-bottom:8px;">Check your email</div>
+      {% if email %}
+      <p style="color:#666;font-size:14px;">We sent a 6-digit code to <strong>{{ email }}</strong></p>
+      {% else %}
+      <p style="color:#666;font-size:14px;">We sent a 6-digit verification code to your email.</p>
+      {% endif %}
+      <p style="color:#888;font-size:13px;margin-top:8px;">Check your spam folder if you don't see it.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        {% if error %}
+          <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="username" value="{{ username }}">
+          <div class="form-group">
+            <label class="form-label">Verification Code</label>
+            <input
+              type="text"
+              name="code"
+              class="form-control"
+              placeholder="123456"
+              autofocus
+              maxlength="6"
+              style="letter-spacing:8px;font-size:24px;text-align:center;font-family:'DM Mono',monospace;"
+            >
+            <p class="form-hint">Enter the 6-digit code from your email.</p>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">
+            Verify Email
+          </button>
+        </form>
+      </div>
+    </div>
+
+{% endblock %}

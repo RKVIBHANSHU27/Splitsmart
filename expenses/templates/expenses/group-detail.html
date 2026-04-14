@@ -1,0 +1,324 @@
+{% extends 'expenses/base.html' %}
+{% block title %}{{ group.name }} — SplitSmart{% endblock %}
+{% block content %}
+<div class="container">
+
+  <div class="page-header">
+    <div class="flex-between">
+      <div>
+        <div style="font-size:13px;color:#888;margin-bottom:6px;">
+          <a href="{% url 'groups' %}" style="color:#888;text-decoration:none;">Groups</a> / {{ group.name }}
+        </div>
+        <h1>{{ group.name }}</h1>
+        {% if group.description %}<p>{{ group.description }}</p>{% endif %}
+      </div>
+      <div class="flex-gap">
+        <a href="{% url 'receipt_upload' group.pk %}" class="btn btn-primary">+ Upload Receipt</a>
+        {% if group.created_by == request.user %}
+        <a href="{% url 'group_delete' group.pk %}" class="btn btn-danger btn-sm">Delete</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;">
+
+    <!-- LEFT — Receipts -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Receipts ({{ receipts.count }})</h2>
+          <span class="money" style="font-size:14px;font-weight:600;">Total: €{{ group.total_expenses|floatformat:2 }}</span>
+        </div>
+        {% if receipts %}
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Merchant</th>
+              <th>Paid by</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th style="text-align:right;">Amount</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for receipt in receipts %}
+            <tr>
+              <td><a href="{% url 'receipt-detail' receipt.pk %}" style="font-weight:500;color:var(--text);text-decoration:none;">{{ receipt.merchant_name|default:"Unnamed" }}</a></td>
+              <td style="font-size:13px;">{{ receipt.paid_by.get_full_name|default:receipt.paid_by.username|default:"—" }}</td>
+              <td style="color:#888;font-size:13px;">{{ receipt.transaction_date|date:"M d, Y"|default:"—" }}</td>
+              <td><span class="badge {% if receipt.status == 'processed' %}badge-green{% elif receipt.status == 'pending' %}badge-yellow{% else %}badge-red{% endif %}">{{ receipt.status }}</span></td>
+              <td style="text-align:right;" class="money">{{ receipt.currency }} {{ receipt.total_amount|default:"0.00"|floatformat:2 }}</td>
+              <td><a href="{% url 'receipt-detail' receipt.pk %}" class="btn btn-secondary btn-sm">View</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">🧾</div>
+          <h3>No receipts yet</h3>
+          <a href="{% url 'receipt_upload' group.pk %}" class="btn btn-primary">Upload Receipt</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- RIGHT — Sidebar -->
+    <div>
+
+      <!-- BALANCES -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><h2>💸 Balances</h2></div>
+        <div style="padding:16px;">
+          {% if debts %}
+            {% for debtor, creditor, amount in debts %}
+            <div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
+              <div class="flex-gap" style="margin-bottom:6px;">
+                <div class="avatar" style="width:24px;height:24px;font-size:9px;">{{ debtor.first_name.0|default:debtor.username.0|upper }}</div>
+                <span style="font-weight:500;">{% if debtor == request.user %}You{% else %}{{ debtor.get_full_name|default:debtor.username }}{% endif %}</span>
+                <span style="color:#888;">owes</span>
+                <div class="avatar" style="width:24px;height:24px;font-size:9px;">{{ creditor.first_name.0|default:creditor.username.0|upper }}</div>
+                <span style="font-weight:500;">{% if creditor == request.user %}You{% else %}{{ creditor.get_full_name|default:creditor.username }}{% endif %}</span>
+              </div>
+              <div class="flex-between">
+                <span class="money" style="font-size:16px;font-weight:700;color:var(--red);">€{{ amount }}</span>
+                {% if debtor == request.user %}
+                <button onclick="openSettle('{{ creditor.pk }}','{{ creditor.get_full_name|default:creditor.username }}','{{ amount }}')" class="btn btn-success btn-sm">Settle Up</button>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div style="text-align:center;padding:20px;color:#888;font-size:13px;">✅ All settled up!</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- MEMBERS -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><h2>Members ({{ group.members.count }})</h2></div>
+        <div>
+          {% for mb in member_balances %}
+          <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <div class="flex-gap">
+              <div class="avatar" style="width:30px;height:30px;font-size:11px;">{{ mb.user.first_name.0|default:mb.user.username.0|upper }}</div>
+              <div>
+                <div style="font-size:13px;font-weight:500;">
+                  {% if mb.user == request.user %}{{ mb.user.username }}{% else %}{{ mb.user.get_full_name|default:mb.user.username }}{% endif %}
+                </div>
+                {% if group.created_by == mb.user %}<div style="font-size:11px;color:#888;">Owner</div>{% endif %}
+              </div>
+            </div>
+            <div style="text-align:right;">
+              {% if mb.balance > 0 %}
+                <span class="money" style="font-size:12px;font-weight:700;color:var(--green);">+€{{ mb.balance|floatformat:2 }}</span>
+                <div style="font-size:10px;color:var(--green);">gets back</div>
+              {% elif mb.balance < 0 %}
+                <span class="money" style="font-size:12px;font-weight:700;color:var(--red);">-€{{ mb.balance|floatformat:2|slice:"1:" }}</span>
+                <div style="font-size:10px;color:var(--red);">owes</div>
+              {% else %}
+                <span style="font-size:12px;color:#888;">Settled</span>
+              {% endif %}
+            </div>
+            {% if group.created_by == request.user and mb.user != request.user %}
+            <a href="{% url 'remove_member' group.pk mb.user.pk %}" class="btn btn-danger btn-sm" onclick="return confirm('Remove?')">×</a>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if group.created_by == request.user %}
+        <div style="padding:16px 18px;border-top:1px solid var(--border);">
+          <form method="post" action="{% url 'add_member' group.pk %}">
+            {% csrf_token %}
+            <div style="display:flex;gap:8px;">
+              <input type="text" name="username" class="form-control" placeholder="Add by username" style="flex:1;">
+              <button type="submit" class="btn btn-secondary">Add</button>
+            </div>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- QUICK SPLIT -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><h2>⚡ Quick Split</h2></div>
+        <div style="padding:16px;">
+          <form method="post" action="{% url 'manual_split' group.pk %}">
+            {% csrf_token %}
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <input type="text" name="description" class="form-control" placeholder="e.g. Dinner, Taxi...">
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Amount</label>
+                <input type="number" name="total_amount" id="manual-total" class="form-control" placeholder="0.00" step="0.01" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Currency</label>
+                <select name="currency" class="form-control">
+                  {% for c in currencies %}<option value="{{ c }}" {% if c == 'EUR' %}selected{% endif %}>{{ c }}</option>{% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Paid by</label>
+              <select name="paid_by" class="form-control">
+                {% for member in group.members.all %}
+                <option value="{{ member.pk }}" {% if member == request.user %}selected{% endif %}>
+                  {% if member == request.user %}{{ member.username }}{% else %}{{ member.get_full_name|default:member.username }}{% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <div class="flex-between" style="margin-bottom:8px;">
+                <label class="form-label" style="margin:0;">Split between</label>
+                <div style="display:flex;gap:4px;">
+                  <button type="button" onclick="selectAll()" class="btn btn-secondary btn-sm">All</button>
+                  <button type="button" onclick="clearAll()" class="btn btn-secondary btn-sm">None</button>
+                </div>
+              </div>
+              {% for member in group.members.all %}
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;">
+                <div class="flex-gap">
+                  <input type="checkbox" name="members" value="{{ member.pk }}" class="member-checkbox" checked style="accent-color:#1a1a1a;width:15px;height:15px;">
+                  <div class="avatar" style="width:24px;height:24px;font-size:10px;">{{ member.first_name.0|default:member.username.0|upper }}</div>
+                  <span style="font-size:13px;font-weight:500;">{% if member == request.user %}{{ member.username }}{% else %}{{ member.get_full_name|default:member.username }}{% endif %}</span>
+                </div>
+                <span class="money" style="font-size:13px;font-weight:700;color:var(--green);" id="preview-{{ member.pk }}">€0.00</span>
+              </label>
+              {% endfor %}
+            </div>
+            <div style="background:var(--surface);border-radius:var(--radius);padding:14px;text-align:center;margin-bottom:14px;border:1px solid var(--border);">
+              <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;font-weight:600;margin-bottom:4px;">Each person pays</div>
+              <div class="money" id="per-person-display" style="font-size:26px;font-weight:700;">€0.00</div>
+              <div style="font-size:12px;color:#888;margin-top:2px;"><span id="selected-count">{{ group.members.count }}</span> members</div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;" onclick="return validateSplit()">Save & Split</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ACTIVITY -->
+      <div class="card">
+        <div class="card-header"><h2>📋 Activity</h2></div>
+        <div>
+          {% if activities %}
+            {% for activity in activities %}
+            <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-size:13px;">
+              <div class="flex-gap">
+                <div class="avatar" style="width:22px;height:22px;font-size:9px;">{{ activity.user.first_name.0|default:activity.user.username.0|upper }}</div>
+                <span style="font-weight:500;">{% if activity.user == request.user %}You{% else %}{{ activity.user.get_full_name|default:activity.user.username }}{% endif %}</span>
+                <span style="color:#888;">{{ activity.action }}</span>
+              </div>
+              <div style="font-size:11px;color:#aaa;margin-top:3px;margin-left:28px;">{{ activity.created_at|timesince }} ago</div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div style="padding:20px;text-align:center;color:#888;font-size:13px;">No activity yet.</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- SETTLE UP MODAL -->
+<div id="settle-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:8px;padding:28px;width:100%;max-width:400px;margin:0 16px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+    <h3 style="font-size:18px;font-weight:700;margin-bottom:4px;">Settle Up</h3>
+    <p style="font-size:13px;color:#888;margin-bottom:20px;">Record a payment you made</p>
+    <form method="post" action="{% url 'settle_up' group.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="paid_to" id="settle-paid-to">
+      <div class="form-group">
+        <label class="form-label">Paying to</label>
+        <input type="text" id="settle-name" class="form-control" readonly style="background:var(--surface);">
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Amount</label>
+          <input type="number" name="amount" id="settle-amount" class="form-control" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Currency</label>
+          <select name="currency" class="form-control">
+            {% for c in currencies %}<option value="{{ c }}" {% if c == 'EUR' %}selected{% endif %}>{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note (optional)</label>
+        <input type="text" name="note" class="form-control" placeholder="e.g. Cash, Bank transfer...">
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button type="button" onclick="closeSettle()" class="btn btn-secondary" style="flex:1;justify-content:center;">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;">Record Payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Settle modal
+function openSettle(id, name, amount) {
+  document.getElementById('settle-paid-to').value = id;
+  document.getElementById('settle-name').value    = name;
+  document.getElementById('settle-amount').value  = amount;
+  document.getElementById('settle-modal').style.display = 'flex';
+}
+function closeSettle() {
+  document.getElementById('settle-modal').style.display = 'none';
+}
+document.getElementById('settle-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettle();
+});
+
+// Quick split preview
+const memberPks = [{% for member in group.members.all %}{{ member.pk }}{% if not forloop.last %},{% endif %}{% endfor %}];
+
+function updatePreview() {
+  const total   = parseFloat(document.getElementById('manual-total').value) || 0;
+  const checked = Array.from(document.querySelectorAll('.member-checkbox:checked'));
+  const count   = checked.length;
+  const per     = count > 0 ? (total / count).toFixed(2) : '0.00';
+  document.getElementById('per-person-display').textContent = '€' + per;
+  document.getElementById('selected-count').textContent     = count;
+  memberPks.forEach(pk => {
+    const el = document.getElementById('preview-' + pk);
+    const cb = document.querySelector(`.member-checkbox[value="${pk}"]`);
+    if (el && cb) {
+      el.textContent = cb.checked ? '€' + per : '—';
+      el.style.color = cb.checked ? 'var(--green)' : '#ccc';
+      cb.closest('label').style.borderColor = cb.checked ? '#1a1a1a' : 'var(--border)';
+    }
+  });
+}
+
+function selectAll() {
+  document.querySelectorAll('.member-checkbox').forEach(cb => cb.checked = true);
+  updatePreview();
+}
+function clearAll() {
+  document.querySelectorAll('.member-checkbox').forEach(cb => cb.checked = false);
+  updatePreview();
+}
+function validateSplit() {
+  const total   = parseFloat(document.getElementById('manual-total').value) || 0;
+  const checked = document.querySelectorAll('.member-checkbox:checked').length;
+  if (total <= 0 || checked === 0) {
+    alert('Enter an amount and select at least one member.');
+    return false;
+  }
+  return true;
+}
+
+document.getElementById('manual-total').addEventListener('input', updatePreview);
+document.querySelectorAll('.member-checkbox').forEach(cb => cb.addEventListener('change', updatePreview));
+updatePreview();
+</script>
+{% endblock %}

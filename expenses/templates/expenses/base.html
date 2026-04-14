@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}SplitSmart{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #ffffff; --surface: #f8f8f8; --border: #e4e4e4; --border-dark: #ccc;
+      --text: #111111; --muted: #666666; --accent: #1a1a1a;
+      --green: #16a34a; --green-bg: #f0fdf4;
+      --red: #dc2626; --red-bg: #fef2f2;
+      --yellow: #d97706; --yellow-bg: #fffbeb;
+      --blue: #2563eb; --blue-bg: #eff6ff;
+      --radius: 6px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; min-height: 100vh; }
+
+    /* NAV */
+    .nav { background: #fff; border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 100; }
+    .nav-brand { font-family: 'DM Mono', monospace; font-size: 17px; font-weight: 500; color: var(--text); text-decoration: none; letter-spacing: -0.5px; }
+    .nav-brand span { color: var(--muted); }
+    .nav-links { display: flex; align-items: center; gap: 6px; }
+    .nav-link { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; padding: 6px 12px; border-radius: var(--radius); transition: all 0.15s; }
+    .nav-link:hover { background: var(--surface); color: var(--text); }
+    .nav-link.active { background: var(--accent); color: #fff; }
+
+    /* LAYOUT */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .main { padding: 40px 0; }
+    .page-header { margin-bottom: 32px; }
+    .page-header h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
+    .page-header p { color: var(--muted); margin-top: 4px; font-size: 14px; }
+
+    /* CARDS */
+    .card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .card-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-header h2 { font-size: 16px; font-weight: 600; }
+    .card-body { padding: 22px; }
+
+    /* STATS */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .stat-label { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+    .stat-value { font-size: 28px; font-weight: 600; margin-top: 6px; letter-spacing: -1px; }
+    .stat-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+    /* BUTTONS */
+    .btn { display: inline-flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: var(--radius); border: 1px solid transparent; cursor: pointer; text-decoration: none; transition: all 0.15s; white-space: nowrap; }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover { background: #333; }
+    .btn-secondary { background: #fff; color: var(--text); border-color: var(--border-dark); }
+    .btn-secondary:hover { background: var(--surface); }
+    .btn-danger { background: var(--red-bg); color: var(--red); border-color: #fca5a5; }
+    .btn-danger:hover { background: #fee2e2; }
+    .btn-success { background: var(--green-bg); color: var(--green); border-color: #86efac; }
+    .btn-sm { padding: 5px 10px; font-size: 13px; }
+
+    /* FORMS */
+    .form-group { margin-bottom: 18px; }
+    .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+    .form-control { width: 100%; padding: 9px 12px; border: 1px solid var(--border-dark); border-radius: var(--radius); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: #fff; outline: none; transition: border-color 0.15s; }
+    .form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,26,26,0.06); }
+    .form-error { font-size: 12px; color: var(--red); margin-top: 4px; }
+    .form-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* TABLE */
+    .table { width: 100%; border-collapse: collapse; }
+    .table th { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+    .table td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
+    .table tr:last-child td { border-bottom: none; }
+    .table tr:hover td { background: var(--surface); }
+
+    /* BADGES */
+    .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+    .badge-red { background: var(--red-bg); color: var(--red); }
+    .badge-gray { background: var(--surface); color: var(--muted); }
+
+    /* ALERTS */
+    .alert { padding: 12px 16px; border-radius: var(--radius); font-size: 14px; margin-bottom: 20px; border: 1px solid; }
+    .alert-success { background: var(--green-bg); color: var(--green); border-color: #86efac; }
+    .alert-error { background: var(--red-bg); color: var(--red); border-color: #fca5a5; }
+    .alert-info { background: var(--blue-bg); color: var(--blue); border-color: #93c5fd; }
+
+    /* EMPTY STATE */
+    .empty-state { text-align: center; padding: 60px 20px; }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .empty-state p { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+
+    /* AVATAR */
+    .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; text-transform: uppercase; flex-shrink: 0; }
+
+    /* UTILS */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+    .flex-gap { display: flex; align-items: center; gap: 12px; }
+    .money { font-family: 'DM Mono', monospace; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+    @media (max-width: 768px) {
+      .nav { padding: 0 16px; }
+      .container { padding: 0 16px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<nav class="nav">
+  <a href="{% url 'dashboard' %}" class="nav-brand">Split<span>Smart</span></a>
+  <div class="nav-links">
+    <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a>
+    <a href="{% url 'groups' %}" class="nav-link {% if 'group' in request.resolver_match.url_name %}active{% endif %}">Groups</a>
+    <span style="width:1px;height:20px;background:var(--border);margin:0 4px;"></span>
+    <span style="font-size:13px;color:var(--muted);padding:0 8px;">{{ user.get_full_name|default:user.username }}</span>
+    <a href="{% url 'logout' %}" class="btn btn-secondary btn-sm">Sign out</a>
+  </div>
+</nav>
+{% endif %}
+
+{% if messages %}
+<div class="container" style="margin-top:16px;">
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="main">
+  {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>

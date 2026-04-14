@@ -1,0 +1,147 @@
+{% extends 'expenses/base.html' %}
+{% block title %}{{ receipt.merchant_name|default:"Receipt" }} — SplitSmart{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="page-header">
+    <div style="font-size:13px;color:#888;margin-bottom:6px;">
+      <a href="{% url 'groups' %}" style="color:#888;text-decoration:none;">Groups</a> /
+      <a href="{% url 'group-detail' receipt.group.pk %}" style="color:#888;text-decoration:none;">{{ receipt.group.name }}</a> / Receipt
+    </div>
+    <div class="flex-between">
+      <h1>{{ receipt.merchant_name|default:"Unnamed Receipt" }}</h1>
+      <div class="flex-gap">
+        <span class="badge {% if receipt.status == 'processed' %}badge-green{% elif receipt.status == 'pending' %}badge-yellow{% else %}badge-red{% endif %}">{{ receipt.status }}</span>
+        {% if receipt.uploaded_by == request.user %}
+        <a href="{% url 'receipt_delete' receipt.pk %}" class="btn btn-danger btn-sm">Delete</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+    <!-- Receipt Info -->
+    <div>
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-header"><h2>Receipt Details</h2></div>
+        <div class="card-body">
+          {% if image_url %}
+            <div style="margin-bottom:16px;text-align:center;">
+              <img src="{{ image_url }}" alt="Receipt" style="max-width:100%;max-height:280px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border);">
+              <div style="font-size:11px;color:#888;margin-top:6px;">📦 Stored on AWS S3</div>
+            </div>
+          {% endif %}
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div>
+              <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;font-weight:500;margin-bottom:4px;">Merchant</div>
+              <div style="font-weight:500;">{{ receipt.merchant_name|default:"—" }}</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;font-weight:500;margin-bottom:4px;">Date</div>
+              <div>{{ receipt.transaction_date|date:"M d, Y"|default:"—" }}</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;font-weight:500;margin-bottom:4px;">Total</div>
+              <div class="money" style="font-size:22px;font-weight:700;">{{ receipt.currency }} {{ receipt.total_amount|default:"0.00"|floatformat:2 }}</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;font-weight:500;margin-bottom:4px;">Tax</div>
+              <div class="money">{{ receipt.currency }} {{ receipt.tax_amount|default:"0.00"|floatformat:2 }}</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;font-weight:500;margin-bottom:4px;">Paid by</div>
+              <div>{{ receipt.paid_by.get_full_name|default:receipt.paid_by.username|default:"—" }}</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;font-weight:500;margin-bottom:4px;">Group</div>
+              <div><a href="{% url 'group-detail' receipt.group.pk %}" style="color:var(--text);">{{ receipt.group.name }}</a></div>
+            </div>
+          </div>
+
+          {% if receipt.notes %}
+          <div style="margin-top:16px;padding:12px;background:var(--surface);border-radius:var(--radius);font-size:13px;color:#555;">
+            📝 {{ receipt.notes }}
+          </div>
+          {% endif %}
+
+          {% if receipt.image_s3_key %}
+          <div style="margin-top:12px;padding:10px 12px;background:var(--green-bg);border-radius:var(--radius);font-size:12px;color:var(--green);">
+            ✅ Processed by AWS Textract OCR
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- FIX 2: correct split count -->
+      <div class="card">
+        <div class="card-header"><h2>Split Per Person</h2></div>
+        <div style="padding:18px 22px;">
+          <div class="flex-between">
+            <div style="font-size:13px;color:#666;">Total ÷ {{ non_payer_splits_count }} members</div>
+            <div class="money" style="font-size:28px;font-weight:700;">{{ receipt.currency }} {{ per_person_amount|floatformat:2 }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FIX 1: Exclude payer from Who Owes What -->
+    <div class="card">
+      <div class="card-header"><h2>Who Owes What</h2></div>
+      {% if splits %}
+      <div>
+        {% for split in splits %}
+        {% if split.user != receipt.paid_by %}
+        <div style="padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div class="flex-gap">
+            <div class="avatar" style="width:36px;height:36px;font-size:13px;{% if split.is_paid %}background:var(--green);{% endif %}">
+              {{ split.user.first_name.0|default:split.user.username.0|upper }}
+            </div>
+            <div>
+              <div style="font-weight:500;font-size:14px;">
+                {% if split.user == request.user %}{{ split.user.username }}{% else %}{{ split.user.get_full_name|default:split.user.username }}{% endif %}
+              </div>
+              <div style="font-size:12px;color:#888;">
+                {% if split.is_paid %}✓ Paid
+                {% else %}Owes {{ receipt.paid_by.get_full_name|default:receipt.paid_by.username }}
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="flex-gap">
+            <span class="money" style="font-size:16px;font-weight:600;">{{ receipt.currency }} {{ split.amount|floatformat:2 }}</span>
+            {% if split.user == request.user %}
+            <a href="{% url 'mark_paid' split.pk %}" class="btn {% if split.is_paid %}btn-secondary{% else %}btn-success{% endif %} btn-sm">
+              {% if split.is_paid %}Undo{% else %}Mark Paid{% endif %}
+            </a>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state"><p style="color:#888;">No splits yet.</p></div>
+      {% endif %}
+
+      <!-- Payer info box -->
+      {% if receipt.paid_by %}
+      <div style="padding:16px 22px;background:var(--green-bg);border-top:1px solid var(--border);">
+        <div class="flex-gap">
+          <div class="avatar" style="width:36px;height:36px;font-size:13px;background:var(--green);">
+            {{ receipt.paid_by.first_name.0|default:receipt.paid_by.username.0|upper }}
+          </div>
+          <div>
+            <div style="font-weight:500;font-size:14px;">
+              {% if receipt.paid_by == request.user %}You{% else %}{{ receipt.paid_by.get_full_name|default:receipt.paid_by.username }}{% endif %}
+            </div>
+            <div style="font-size:12px;color:var(--green);">✓ Paid the full amount</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

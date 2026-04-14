@@ -1,0 +1,55 @@
+{% extends 'expenses/base.html' %}
+{% block title %}Groups — SplitSmart{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="page-header flex-between">
+    <div>
+      <h1>Groups</h1>
+      <p>Manage your shared expense groups</p>
+    </div>
+    <a href="{% url 'group_create' %}" class="btn btn-primary">+ New Group</a>
+  </div>
+
+  {% if groups %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+    {% for group in groups %}
+    <div class="card">
+      <div class="card-body">
+        <div class="flex-between" style="margin-bottom:12px;">
+          <h3 style="font-size:16px;font-weight:600;">{{ group.name }}</h3>
+          <span class="badge badge-gray">{{ group.member_count }} member{{ group.member_count|pluralize }}</span>
+        </div>
+        {% if group.description %}
+          <p style="font-size:13px;color:#666;margin-bottom:14px;">{{ group.description }}</p>
+        {% endif %}
+        <hr class="divider">
+        <div class="flex-between">
+          <div>
+            <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;font-weight:500;">Total</div>
+            <div class="money" style="font-size:20px;font-weight:600;">€{{ group.total_expenses|floatformat:2 }}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;font-weight:500;">Receipts</div>
+            <div style="font-size:20px;font-weight:600;">{{ group.receipts.count }}</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px;">
+          <a href="{% url 'group-detail' group.pk %}" class="btn btn-secondary btn-sm" style="flex:1;justify-content:center;">View</a>
+          <a href="{% url 'receipt_upload' group.pk %}" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">+ Receipt</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-icon">🗂️</div>
+      <h3>No groups yet</h3>
+      <p>Create a group to start splitting expenses.</p>
+      <a href="{% url 'group_create' %}" class="btn btn-primary">Create First Group</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

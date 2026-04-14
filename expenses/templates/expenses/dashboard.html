@@ -1,0 +1,88 @@
+{% extends 'expenses/base.html' %}
+{% block title %}Dashboard — SplitSmart{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="page-header flex-between">
+    <div>
+      <h1>Hey, {{ user.first_name|default:user.username }} 👋</h1>
+      <p>Here's your expense overview</p>
+    </div>
+    <a href="{% url 'group_create' %}" class="btn btn-primary">+ New Group</a>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Spent</div>
+      <div class="stat-value money">€{{ total_spent|floatformat:2 }}</div>
+      <div class="stat-sub">across all groups</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">You Are Owed</div>
+      <div class="stat-value money" style="color:var(--green);">€{{ total_owed|floatformat:2 }}</div>
+      <div class="stat-sub">others owe you</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">You Owe</div>
+      <div class="stat-value money" style="color:var(--red);">€{{ total_owe|floatformat:2 }}</div>
+      <div class="stat-sub">you owe others</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Groups</div>
+      <div class="stat-value">{{ total_groups }}</div>
+      <div class="stat-sub">active groups</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <h2>My Groups</h2>
+        <a href="{% url 'groups' %}" style="font-size:13px;color:#666;text-decoration:none;">View all →</a>
+      </div>
+      <div>
+        {% if groups %}
+          {% for group in groups|slice:":5" %}
+          <div style="padding:14px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <a href="{% url 'group-detail' group.pk %}" style="font-weight:500;color:var(--text);text-decoration:none;font-size:14px;">{{ group.name }}</a>
+              <div style="font-size:12px;color:#888;margin-top:2px;">{{ group.member_count }} member{{ group.member_count|pluralize }}</div>
+            </div>
+            <div class="money" style="font-size:14px;font-weight:600;">€{{ group.total_expenses|floatformat:2 }}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state" style="padding:40px 20px;">
+            <div class="empty-icon">🗂️</div>
+            <p>No groups yet.<br><a href="{% url 'group_create' %}" style="color:var(--text);font-weight:500;">Create your first group</a></p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Recent Receipts</h2></div>
+      <div>
+        {% if recent_receipts %}
+          {% for receipt in recent_receipts %}
+          <div style="padding:14px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <a href="{% url 'receipt-detail' receipt.pk %}" style="font-weight:500;color:var(--text);text-decoration:none;font-size:14px;">{{ receipt.merchant_name|default:"Unnamed Receipt" }}</a>
+              <div style="font-size:12px;color:#888;margin-top:2px;">{{ receipt.group.name }} · {{ receipt.created_at|date:"M d, Y" }}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="money" style="font-size:14px;font-weight:600;">{{ receipt.currency }} {{ receipt.total_amount|default:"0.00"|floatformat:2 }}</div>
+              <span class="badge {% if receipt.status == 'processed' %}badge-green{% elif receipt.status == 'pending' %}badge-yellow{% else %}badge-red{% endif %}">{{ receipt.status }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state" style="padding:40px 20px;">
+            <div class="empty-icon">🧾</div>
+            <p>No receipts yet.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

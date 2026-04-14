@@ -1,0 +1,55 @@
+{% extends 'expenses/base.html' %}
+{% block title %}Sign Up — SplitSmart{% endblock %}
+{% block content %}
+<div style="min-height:80vh;display:flex;align-items:center;justify-content:center;">
+  <div style="width:100%;max-width:460px;padding:0 16px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:500;margin-bottom:8px;">SplitSmart</div>
+      <p style="color:#666;font-size:14px;">Create your account</p>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">First Name</label>
+              <input type="text" name="first_name" class="form-control" value="{{ form.first_name.value|default:'' }}" placeholder="Jane">
+              {% for err in form.first_name.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name</label>
+              <input type="text" name="last_name" class="form-control" value="{{ form.last_name.value|default:'' }}" placeholder="Smith">
+              {% for err in form.last_name.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" name="username" class="form-control" value="{{ form.username.value|default:'' }}" placeholder="janesmith">
+            {% for err in form.username.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" value="{{ form.email.value|default:'' }}" placeholder="jane@example.com">
+            {% for err in form.email.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" name="password1" class="form-control" placeholder="••••••••">
+            {% for err in form.password1.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm Password</label>
+            <input type="password" name="password2" class="form-control" placeholder="••••••••">
+            {% for err in form.password2.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;">Create Account</button>
+        </form>
+      </div>
+    </div>
+    <p style="text-align:center;margin-top:20px;font-size:14px;color:#666;">
+      Already have an account? <a href="{% url 'login' %}" style="color:#111;font-weight:500;">Sign in</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends 'expenses/base.html' %}
+{% block title %}Upload Receipt — SplitSmart{% endblock %}
+{% block content %}
+<div class="container">
+  <div style="max-width:620px;margin:0 auto;">
+    <div class="page-header">
+      <div style="font-size:13px;color:#888;margin-bottom:6px;">
+        <a href="{% url 'groups' %}" style="color:#888;text-decoration:none;">Groups</a> /
+        <a href="{% url 'group-detail' group.pk %}" style="color:#888;text-decoration:none;">{{ group.name }}</a> / Upload Receipt
+      </div>
+      <h1>Upload Receipt</h1>
+      <p>Image will be stored in AWS S3 and processed by AWS Textract OCR automatically.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+
+          <!-- Image Upload -->
+          <div class="form-group">
+            <label class="form-label">Receipt Image (AWS S3 + Textract OCR)</label>
+            <div style="border:2px dashed var(--border-dark);border-radius:var(--radius);padding:32px;text-align:center;background:var(--surface);cursor:pointer;" onclick="document.getElementById('id_image').click()">
+              <div style="font-size:32px;margin-bottom:8px;">📷</div>
+              <div style="font-size:14px;font-weight:500;color:#444;">Click to upload receipt image</div>
+              <div style="font-size:12px;color:#888;margin-top:4px;">PNG, JPG up to 10MB — Textract will auto-extract details</div>
+              <input type="file" id="id_image" name="image" accept="image/*" style="display:none;" onchange="showFile(this)">
+            </div>
+            <p id="file-name" style="font-size:12px;color:var(--green);margin-top:6px;display:none;"></p>
+          </div>
+
+          <hr class="divider">
+          <p style="font-size:13px;color:#888;margin-bottom:16px;">Or enter details manually:</p>
+
+          <div class="form-group">
+            <label class="form-label">Merchant Name</label>
+            <input type="text" name="merchant_name" class="form-control" value="{{ form.merchant_name.value|default:'' }}" placeholder="e.g. Tesco, Restaurant...">
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Total Amount *</label>
+              <input type="number" name="total_amount" id="total-input" class="form-control" value="{{ form.total_amount.value|default:'' }}" placeholder="0.00" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Currency</label>
+              <select name="currency" class="form-control">
+                {% for c in currencies %}<option value="{{ c }}" {% if c == 'EUR' %}selected{% endif %}>{{ c }}</option>{% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Tax Amount</label>
+              <input type="number" name="tax_amount" class="form-control" value="{{ form.tax_amount.value|default:'' }}" placeholder="0.00" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input type="date" name="transaction_date" class="form-control" value="{{ form.transaction_date.value|default:'' }}">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Paid by</label>
+            <select name="paid_by" class="form-control">
+              {% for member in members %}
+              <option value="{{ member.pk }}" {% if member == request.user %}selected{% endif %}>
+                {% if member == request.user %}{{ member.username }} (you){% else %}{{ member.get_full_name|default:member.username }}{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" class="form-control" rows="2" placeholder="Optional...">{{ form.notes.value|default:'' }}</textarea>
+          </div>
+
+          <div style="background:var(--blue-bg);border:1px solid #bfdbfe;border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;font-size:13px;">
+            💡 Split equally among <strong>{{ group.members.count }} members</strong>.
+            Each pays: <strong class="money" id="split-preview">€0.00</strong>
+          </div>
+
+          <div style="display:flex;gap:10px;">
+            <a href="{% url 'group-detail' group.pk %}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Upload & Split</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+function showFile(input) {
+  const p = document.getElementById('file-name');
+  if (input.files && input.files[0]) {
+    p.textContent = '✓ ' + input.files[0].name;
+    p.style.display = 'block';
+  }
+}
+const members = {{ group.members.count }};
+document.getElementById('total-input').addEventListener('input', function() {
+  const val = parseFloat(this.value) || 0;
+  document.getElementById('split-preview').textContent = '€' + (val / members).toFixed(2);
+});
+</script>
+{% endblock %}
