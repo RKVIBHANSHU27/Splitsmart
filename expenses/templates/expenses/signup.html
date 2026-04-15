@@ -14,23 +14,23 @@
           <div class="grid-2">
             <div class="form-group">
               <label class="form-label">First Name</label>
-              <input type="text" name="first_name" class="form-control" value="{{ form.first_name.value|default:'' }}" placeholder="Jane">
+              <input type="text" name="first_name" class="form-control" value="{{ form.first_name.value|default:'' }}" placeholder="Virat">
               {% for err in form.first_name.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
             </div>
             <div class="form-group">
               <label class="form-label">Last Name</label>
-              <input type="text" name="last_name" class="form-control" value="{{ form.last_name.value|default:'' }}" placeholder="Smith">
+              <input type="text" name="last_name" class="form-control" value="{{ form.last_name.value|default:'' }}" placeholder="Kohli">
               {% for err in form.last_name.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
             </div>
           </div>
           <div class="form-group">
             <label class="form-label">Username</label>
-            <input type="text" name="username" class="form-control" value="{{ form.username.value|default:'' }}" placeholder="janesmith">
+            <input type="text" name="username" class="form-control" value="{{ form.username.value|default:'' }}" placeholder="VK18">
             {% for err in form.username.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
-            <input type="email" name="email" class="form-control" value="{{ form.email.value|default:'' }}" placeholder="jane@example.com">
+            <input type="email" name="email" class="form-control" value="{{ form.email.value|default:'' }}" placeholder="VK18@example.com">
             {% for err in form.email.errors %}<p class="form-error">{{ err }}</p>{% endfor %}
           </div>
           <div class="form-group">
