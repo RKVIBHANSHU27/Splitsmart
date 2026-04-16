@@ -14,7 +14,7 @@ from .dynamodb import db
 CURRENCIES = ['EUR', 'USD', 'GBP', 'INR', 'AUD', 'CAD']
 
 
-# AUTH----------------------------------- 
+# AUTH -------------------------------------------------------------------
 def signup_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -55,7 +55,7 @@ def logout_view(request):
     return redirect('login')
 
 
-#  HELPERS ----------------------------------------------------
+# HELPERS ----------------------------------------------------------------
 def get_balances(group):
     balances = {m.pk: Decimal('0.00') for m in group.members.all()}
     for receipt in group.receipts.all():
@@ -93,7 +93,7 @@ def get_debts(group):
     return debts
 
 
-#  DASHBOARD ---------------------------------------------------------
+# DASHBOARD --------------------------------------------------------------
 @login_required
 def dashboard_view(request):
     groups       = request.user.expense_groups.all()
@@ -116,7 +116,7 @@ def dashboard_view(request):
     })
 
 
-# GROUPS --------------------------------------------
+# GROUPS -----------------------------------------------------------------
 @login_required
 def group_list_view(request):
     return render(request, 'expenses/groups.html', {
@@ -230,7 +230,7 @@ def remove_member_view(request, pk, user_id):
     return redirect('group-detail', pk=pk)
 
 
-# RECEIPTS-------------------------------------------------------------
+# RECEIPTS ---------------------------------------------------------------
 @login_required
 def receipt_upload_view(request, group_pk):
     group = get_object_or_404(Group, pk=group_pk, members=request.user)
@@ -259,7 +259,7 @@ def receipt_upload_view(request, group_pk):
                     receipt.image_s3_url = s3_result['url']
                     receipt.image_s3_key = s3_result['key']
                     receipt.status       = 'pending'
-                    # Invoke Lambda automatically
+                    # Invoke Lambda asynchronously (fire-and-forget)
                     lambda_service.invoke_receipt_processor(
                         settings.AWS_STORAGE_BUCKET_NAME,
                         s3_result['key']
@@ -275,13 +275,11 @@ def receipt_upload_view(request, group_pk):
                 ocr = textract.extract_receipt(receipt.image_s3_key)
                 if ocr['success']:
                     data = ocr['data']
-                    if data['merchant_name'] and not receipt.merchant_name:
-                        receipt.merchant_name = data['merchant_name']
-                    if data['total_amount'] and not receipt.total_amount:
-                        receipt.total_amount = data['total_amount']
-                    if data['tax_amount'] and not receipt.tax_amount:
-                        receipt.tax_amount = data['tax_amount']
-                    receipt.status = 'processed'
+                    # FIX: always prefer Textract result — don't guard with `not receipt.X`
+                    receipt.merchant_name = data['merchant_name'] or receipt.merchant_name
+                    receipt.total_amount  = data['total_amount']  or receipt.total_amount
+                    receipt.tax_amount    = data['tax_amount']    or receipt.tax_amount
+                    receipt.status        = 'processed'
                     receipt.save()
                     cw.info('textract_success', user=request.user.username, details=data)
                     messages.info(request, f'Extracted: {data["merchant_name"]} — {data["total_amount"]}')
@@ -334,11 +332,11 @@ def receipt_detail_view(request, pk):
     if receipt.image_s3_key:
         image_url = s3.generate_presigned_url(receipt.image_s3_key)
     return render(request, 'expenses/receipt-detail.html', {
-        'receipt': receipt,
-        'splits':  splits,
+        'receipt':               receipt,
+        'splits':                splits,
         'non_payer_splits_count': count,
-        'per_person_amount': per_person,
-        'image_url': image_url,
+        'per_person_amount':     per_person,
+        'image_url':             image_url,
     })
 
 
@@ -369,7 +367,7 @@ def mark_paid_view(request, split_id):
     split.save()
     db.save_split(split)
     cw.info('split_toggled', user=request.user.username, details={'is_paid': split.is_paid})
-    return redirect('receipt-detail', pk=split.receipt.pk)  
+    return redirect('receipt-detail', pk=split.receipt.pk)
 
 
 @login_required
@@ -413,7 +411,7 @@ def manual_split_view(request, pk):
             messages.success(request, 'Split saved!')
         else:
             messages.error(request, 'Enter amount and select at least one member.')
-    return redirect('group-detail', pk=pk)  
+    return redirect('group-detail', pk=pk)
 
 
 @login_required
@@ -438,4 +436,4 @@ def settle_up_view(request, pk):
             sns.notify_settlement(group.name, request.user.username, paid_to.username, amount, currency)
             cw.info('settle_up', user=request.user.username, details={'amount': amount})
             messages.success(request, 'Settlement recorded!')
-    return redirect('group-detail', pk=pk)  
+    return redirect('group-detail', pk=pk)

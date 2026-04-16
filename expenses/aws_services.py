@@ -1,6 +1,8 @@
 import boto3
 import uuid
 import os
+import re
+import json
 import logging
 from django.conf import settings
 
@@ -28,8 +30,8 @@ class S3Service:
                 file_obj, self.bucket, key,
                 ExtraArgs={
                     'ContentType': self._get_content_type(ext),
-                 }
-             )
+                }
+            )
             url = f"https://{self.bucket}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
             return {'success': True, 'url': url, 'key': key}
         except Exception as e:
@@ -53,13 +55,13 @@ class S3Service:
             '.png': 'image/png',  '.pdf':  'application/pdf',
         }
         return types.get(ext, 'application/octet-stream')
-    
+
     def generate_presigned_url(self, key, expiry=3600):
         try:
             url = self.client.generate_presigned_url(
                 'get_object',
                 Params={'Bucket': self.bucket, 'Key': key},
-                ExpiresIn=expiry  # 1 hour
+                ExpiresIn=expiry
             )
             return url
         except Exception as e:
@@ -76,7 +78,7 @@ class TextractService:
             region_name=settings.AWS_REGION,
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            aws_session_token=settings.AWS_SESSION_TOKEN, 
+            aws_session_token=settings.AWS_SESSION_TOKEN,
         )
         self.bucket = settings.AWS_STORAGE_BUCKET_NAME
 
@@ -107,7 +109,8 @@ class TextractService:
         return result
 
     def _map_field(self, result, field_type, field_value):
-        if field_type == 'NAME':
+        # FIX: Textract returns VENDOR_NAME, not NAME
+        if field_type in ('VENDOR_NAME', 'NAME'):
             result['merchant_name'] = field_value
         elif field_type == 'TOTAL':
             result['total_amount'] = self._parse_amount(field_value)
@@ -117,9 +120,11 @@ class TextractService:
             result['transaction_date'] = field_value
 
     def _parse_amount(self, value):
+        # FIX: strip all currency symbols and non-numeric chars robustly
         try:
-            return float(value.replace('€','').replace('$','').replace(',','').strip())
-        except:
+            cleaned = re.sub(r'[^\d.]', '', value.replace(',', ''))
+            return float(cleaned) if cleaned else None
+        except Exception:
             return None
 
 
@@ -127,12 +132,12 @@ class SNSService:
     """OOP library for AWS SNS email notifications."""
 
     def __init__(self):
-        self.client    = boto3.client(
+        self.client = boto3.client(
             'sns',
             region_name=settings.AWS_REGION,
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            aws_session_token=settings.AWS_SESSION_TOKEN, 
+            aws_session_token=settings.AWS_SESSION_TOKEN,
         )
         self.topic_arn = settings.SNS_TOPIC_ARN
 
@@ -165,6 +170,7 @@ class SNSService:
             subject=f'You were added to {group_name} on SplitSmart',
             message=f'Hi {new_member},\n\n{added_by} added you to "{group_name}" on SplitSmart.\n\nLog in to view your expenses.'
         )
+
 
 class LambdaService:
     """OOP library for AWS Lambda function invocation."""
@@ -212,8 +218,9 @@ class LambdaService:
             logger.error(f"Lambda monthly invoke failed: {e}")
             return {'success': False, 'error': str(e)}
 
+
 # Singletons
-s3       = S3Service()
-textract = TextractService()
-sns      = SNSService()
+s3             = S3Service()
+textract       = TextractService()
+sns            = SNSService()
 lambda_service = LambdaService()
