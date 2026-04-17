@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.conf import settings
 from decimal import Decimal
+from datetime import datetime
 from .models import Group, Receipt, ExpenseSplit, Settlement, ActivityLog
 from .forms import SignUpForm, LoginForm, GroupForm, AddMemberForm, ReceiptForm
 from .aws_services import s3, textract, sns, lambda_service
@@ -275,11 +276,22 @@ def receipt_upload_view(request, group_pk):
                 ocr = textract.extract_receipt(receipt.image_s3_key)
                 if ocr['success']:
                     data = ocr['data']
-                    # FIX: always prefer Textract result — don't guard with `not receipt.X`
-                    receipt.merchant_name = data['merchant_name'] or receipt.merchant_name
-                    receipt.total_amount  = data['total_amount']  or receipt.total_amount
-                    receipt.tax_amount    = data['tax_amount']    or receipt.tax_amount
-                    receipt.status        = 'processed'
+                    # FIX: use explicit None checks — 'or' would silently drop 0.0 values
+                    if data['merchant_name']:
+                        receipt.merchant_name = data['merchant_name']
+                    if data['total_amount'] is not None:
+                        receipt.total_amount = data['total_amount']
+                    if data['tax_amount'] is not None:
+                        receipt.tax_amount = data['tax_amount']
+                    # FIX: safely parse date string from Textract (multiple formats)
+                    if data['transaction_date']:
+                        for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y', '%d-%m-%Y', '%d.%m.%Y'):
+                            try:
+                                receipt.transaction_date = datetime.strptime(data['transaction_date'], fmt).date()
+                                break
+                            except ValueError:
+                                continue
+                    receipt.status = 'processed'
                     receipt.save()
                     cw.info('textract_success', user=request.user.username, details=data)
                     messages.info(request, f'Extracted: {data["merchant_name"]} — {data["total_amount"]}')

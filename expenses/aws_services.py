@@ -98,6 +98,7 @@ class TextractService:
             'total_amount':     None,
             'tax_amount':       None,
             'transaction_date': '',
+            '_subtotal':        None,  # fallback
         }
         for doc in response.get('ExpenseDocuments', []):
             for field in doc.get('SummaryFields', []):
@@ -106,23 +107,49 @@ class TextractService:
                     field.get('Type', {}).get('Text', ''),
                     field.get('ValueDetection', {}).get('Text', '')
                 )
+        # If no TOTAL found, fall back to SUBTOTAL
+        if result['total_amount'] is None and result.get('_subtotal') is not None:
+            result['total_amount'] = result['_subtotal']
+        result.pop('_subtotal', None)
         return result
 
     def _map_field(self, result, field_type, field_value):
-        # FIX: Textract returns VENDOR_NAME, not NAME
         if field_type in ('VENDOR_NAME', 'NAME'):
             result['merchant_name'] = field_value
-        elif field_type == 'TOTAL':
-            result['total_amount'] = self._parse_amount(field_value)
-        elif field_type == 'TAX':
-            result['tax_amount'] = self._parse_amount(field_value)
+        elif field_type in ('TOTAL', 'AMOUNT_DUE', 'AMOUNT_PAID', 'GRAND_TOTAL'):
+            # Only set if not already found by a higher-priority field
+            parsed = self._parse_amount(field_value)
+            if parsed is not None and result['total_amount'] is None:
+                result['total_amount'] = parsed
+        elif field_type == 'SUBTOTAL':
+            # Use SUBTOTAL only as a last resort (no TOTAL found)
+            parsed = self._parse_amount(field_value)
+            if parsed is not None and result['total_amount'] is None:
+                result['_subtotal'] = parsed
+        elif field_type in ('TAX', 'VAT'):
+            parsed = self._parse_amount(field_value)
+            if parsed is not None:
+                result['tax_amount'] = parsed
         elif field_type == 'INVOICE_RECEIPT_DATE':
             result['transaction_date'] = field_value
 
     def _parse_amount(self, value):
-        # FIX: strip all currency symbols and non-numeric chars robustly
+        """Robustly parse currency strings like '$1,234.56', 'EUR 9.50', '10,65' (EU decimal)."""
+        if not value:
+            return None
         try:
-            cleaned = re.sub(r'[^\d.]', '', value.replace(',', ''))
+            # Detect European decimal format: digit,digit(digit) with no period e.g. '10,65'
+            if re.search(r'\d,\d{1,2}$', value.strip()):
+                # Treat comma as decimal separator
+                cleaned = re.sub(r'[^\d,]', '', value).replace(',', '.')
+            else:
+                # Treat comma as thousands separator
+                cleaned = re.sub(r'[^\d.]', '', value.replace(',', ''))
+            # Guard against multiple dots (e.g. '10.6.5')
+            parts = cleaned.split('.')
+            if len(parts) > 2:
+                # Keep last two parts as integer + decimal
+                cleaned = parts[-2] + '.' + parts[-1]
             return float(cleaned) if cleaned else None
         except Exception:
             return None
